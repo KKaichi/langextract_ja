@@ -28,5 +28,4 @@ __all__ = [
     "schema",
     "data",
     "tokenizer",
-    "annotator",
 ]
