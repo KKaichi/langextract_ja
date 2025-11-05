@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import textwrap
+from unittest import mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -163,6 +164,56 @@ class TokenizerTest(parameterized.TestCase):
         tokenized.tokens,
         expected_tokens,
         msg="Newline flags mismatch",
+    )
+
+  def test_tokenize_with_sudachi_when_available(self):
+    input_text = "寿司が好き。"
+
+    class _FakeMorpheme:
+
+      def __init__(self, surface, start, end, pos):
+        self._surface = surface
+        self._start = start
+        self._end = end
+        self._pos = pos
+
+      def surface(self):
+        return self._surface
+
+      def begin(self):
+        return self._start
+
+      def end(self):
+        return self._end
+
+      def part_of_speech(self):
+        return self._pos
+
+    fake_morphemes = [
+        _FakeMorpheme("寿司", 0, 2, ("名詞", "普通名詞")),
+        _FakeMorpheme("が", 2, 3, ("助詞", "格助詞")),
+        _FakeMorpheme("好き", 3, 5, ("形容詞", "一般")),
+        _FakeMorpheme("。", 5, 6, ("記号", "句点")),
+    ]
+
+    with mock.patch.object(tokenizer, "_get_sudachi_tokenizer", return_value=mock.sentinel.sudachi):
+      with mock.patch.object(tokenizer, "_call_sudachi_tokenize", return_value=fake_morphemes):
+        tokenized = tokenizer.tokenize(input_text)
+
+    expected_tokens = [
+        tokenizer.Token(index=0, token_type=tokenizer.TokenType.WORD),
+        tokenizer.Token(index=1, token_type=tokenizer.TokenType.WORD),
+        tokenizer.Token(index=2, token_type=tokenizer.TokenType.WORD),
+        tokenizer.Token(index=3, token_type=tokenizer.TokenType.PUNCTUATION),
+    ]
+
+    self.assertTokenListEqual(tokenized.tokens, expected_tokens)
+    self.assertEqual(
+        [
+            (token.char_interval.start_pos, token.char_interval.end_pos)
+            for token in tokenized.tokens
+        ],
+        [(0, 2), (2, 3), (3, 5), (5, 6)],
     )
 
 
