@@ -27,6 +27,7 @@ import re
 from absl import logging
 import more_itertools
 
+from langextract.core import annotator as annotator_core
 from langextract.core import data
 from langextract.core import exceptions
 from langextract.core import tokenizer
@@ -306,6 +307,10 @@ class SentenceIterator:
           f"document {self.token_len}."
       )
     self.curr_token_pos = curr_token_pos
+    self._sentence_ranges = annotator_core.get_sentence_token_intervals(
+        self.tokenized_text
+    )
+    self._sentence_index = 0
 
   def __iter__(self) -> Iterator[tokenizer.TokenInterval]:
     return self
@@ -322,19 +327,23 @@ class SentenceIterator:
     assert self.curr_token_pos <= self.token_len
     if self.curr_token_pos == self.token_len:
       raise StopIteration
-    # This locates the sentence which contains the current token position.
-    sentence_range = tokenizer.find_sentence_range(
-        self.tokenized_text.text,
-        self.tokenized_text.tokens,
-        self.curr_token_pos,
-    )
-    assert sentence_range
-    # Start the sentence from the current token position.
-    # If we are in the middle of a sentence, we should start from there.
+    if not self._sentence_ranges:
+      raise StopIteration
+    while self._sentence_index < len(self._sentence_ranges):
+      candidate = self._sentence_ranges[self._sentence_index]
+      if self.curr_token_pos < candidate.end_index:
+        break
+      self._sentence_index += 1
+
+    if self._sentence_index >= len(self._sentence_ranges):
+      sentence_end = self.token_len
+    else:
+      sentence_end = self._sentence_ranges[self._sentence_index].end_index
+
     sentence_range = create_token_interval(
-        self.curr_token_pos, sentence_range.end_index
+        self.curr_token_pos, sentence_end
     )
-    self.curr_token_pos = sentence_range.end_index
+    self.curr_token_pos = sentence_end
     return sentence_range
 
 
