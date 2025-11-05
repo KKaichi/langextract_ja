@@ -44,7 +44,8 @@ dependencies = [
     "PyYAML>=6.0",
     "requests>=2.25.0",
     "tqdm>=4.64.0",
-    "typing-extensions>=4.0.0"
+    "typing-extensions>=4.0.0",
+    "sudachidict-core>=20251022",
 ]
 
 [project.urls]
